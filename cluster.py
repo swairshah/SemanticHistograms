@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from diskcache import Cache
 from report import generate_report, generate_sweep_report
+import joblib
 
 cache = Cache("embedding_cache")
 
@@ -175,7 +176,7 @@ def main(input_file, model_name, run_sweep=False):
     if run_sweep:
         results, sweep_fig = hyperparameter_sweep(sentences, model_name)
         sweep_fig.show()
-        sweep_report_file = Path(f"./reports/{Path(input_file).stem}_sweep_report.html")
+        sweep_report_file = Path(f"./output/reports/{Path(input_file).stem}_sweep_report.html")
         generate_sweep_report(sentences, sweep_fig, results, sweep_report_file)
         print(f"Hyperparameter sweep report generated: {sweep_report_file}")
 
@@ -189,7 +190,7 @@ def main(input_file, model_name, run_sweep=False):
             clusters[label] = []
         clusters[label].append(sentence)
 
-    output_file = Path(f"./clusters/{Path(input_file).stem}_clusters.json")
+    output_file = Path(f".output/clusters/{Path(input_file).stem}_clusters.json")
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, 'w') as f:
         json.dump(clusters, f, indent=2)
@@ -203,9 +204,14 @@ def main(input_file, model_name, run_sweep=False):
             print(f" - {sentence}")
 
     # Generate the HTML report
-    report_file = Path(f"./reports/{Path(input_file).stem}_report.html")
+    report_file = Path(f"./output/reports/{Path(input_file).stem}_report.html")
     generate_report(sentences, labels, embeddings, fig, clusters, evaluation_metrics, report_file)
     print(f"Report generated: {report_file}")
+
+    # Save clustering results for Streamlit app
+    joblib.dump(clusters, 'output/clusters.joblib')
+    joblib.dump(embeddings, 'output/embeddings.joblib')
+    joblib.dump(sentences, 'output/sentences.joblib')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create semantic clusters from input sentences.")

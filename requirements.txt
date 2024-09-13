@@ -2,3 +2,5 @@ scikit-learn
 numpy
 sentence-transformers
 plotly
+streamlit==1.22.0
+pandas

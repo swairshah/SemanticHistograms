@@ -46,6 +46,15 @@ Generate some nice reports!
 - `summarize.py`: Provides text summarization functionality
 - `report.py`: Generates HTML reports with visualizations
 
+## Interactive Exploration
+
+After running the clustering analysis, you can explore the results interactively using the Streamlit app:
+
+```
+streamlit run app.py
+```
+
+This will launch a
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
