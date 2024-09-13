@@ -13,7 +13,9 @@ def load_data():
     clusters = joblib.load('output/clusters.joblib')
     embeddings = joblib.load('output/embeddings.joblib')
     sentences = joblib.load('output/sentences.joblib')
-    return clusters, embeddings, sentences
+    # Sort clusters by size
+    sorted_clusters = dict(sorted(clusters.items(), key=lambda item: len(item[1]), reverse=True))
+    return sorted_clusters, embeddings, sentences
 
 clusters, embeddings, sentences = load_data()
 
@@ -33,7 +35,13 @@ def cluster_overview():
         "Size": [len(cluster) for cluster in clusters.values()]
     }).sort_values("Size", ascending=False)
     
-    st.bar_chart(cluster_stats.set_index("Cluster"))
+    # Use Plotly Express to create a sorted bar chart
+    fig = px.bar(cluster_stats, x='Cluster', y='Size', 
+                 title='Cluster Sizes',
+                 labels={'Cluster': 'Cluster ID', 'Size': 'Number of Sentences'},
+                 height=500)
+    fig.update_xaxes(type='category', categoryorder='total descending')
+    st.plotly_chart(fig, use_container_width=True)
     
     # Display top sentences from each cluster
     st.subheader("Top Sentences from Each Cluster")
@@ -48,7 +56,7 @@ def sentence_explorer():
     st.header("Sentence Explorer")
     
     # Cluster selection
-    selected_cluster = st.selectbox('Select Cluster', sorted(clusters.keys()))
+    selected_cluster = st.selectbox('Select Cluster', list(clusters.keys()))
     cluster_sentences = clusters[selected_cluster]
     cluster_embeddings = np.array([embeddings[sentences.index(s)] for s in cluster_sentences])
     
@@ -136,23 +144,7 @@ def visualization():
     st.write("Hover over points to see sentences. Use mouse to pan and zoom.")
 
     # cluster selection for highlighting
-    selected_cluster = st.selectbox('Highlight Cluster', ['All'] + sorted(set(df['cluster'])))
-    
-    if selected_cluster != 'All':
-        highlight_df = df[df['cluster'] == selected_cluster]
-        highlight_fig = px.scatter(
-            highlight_df, x='x', y='y',
-            hover_data=['sentence'],
-            labels={'x': 't-SNE 1', 'y': 't-SNE 2'},
-            title=f'Highlighted Cluster: {selected_cluster}'
-        )
-        highlight_fig.update_traces(marker=dict(color='red', size=10))
-        highlight_fig.add_trace(
-            px.scatter(df[df['cluster'] != selected_cluster], x='x', y='y').data[0]
-        )
-        highlight_fig.data[1].update(marker=dict(color='gray', size=5, opacity=0.5))
-        highlight_fig.update_layout(height=600, width=800)
-        st.plotly_chart(highlight_fig, use_container_width=True)
+    selected_cluster = st.selectbox('Highlight Cluster', ['All'] + list(clusters.keys()))
 
 # Main stuff
 if page == "Cluster Overview":

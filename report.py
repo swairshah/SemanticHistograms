@@ -25,14 +25,13 @@ def get_cluster_summary(cluster_sentences, cluster_embeddings):
     top_20_sentences = [cluster_sentences[i] for i in top_20_indices]
     return summarize_sentences(top_20_sentences)
 
-def generate_report(sentences, labels, embeddings, fig, clusters, evaluation_metrics, output_file):
+def generate_report(sentences, labels, embeddings, fig, clusters, evaluation_metrics, output_file, cluster_summaries=None, sweep_fig=None, algorithm_info=None):
     if clusters is None:
         raise ValueError("The 'clusters' parameter cannot be None.")
 
     plot_html = plotly.io.to_html(fig, full_html=False)
 
     outliers = {}
-    cluster_summaries = {}
     for cluster_id, cluster_sentences in clusters.items():
         if cluster_id == -1:  # Skip noise cluster
             continue
@@ -40,8 +39,9 @@ def generate_report(sentences, labels, embeddings, fig, clusters, evaluation_met
         cluster_embeddings = embeddings[cluster_indices]
         outlier_indices = find_outliers(cluster_embeddings)
         outliers[cluster_id] = [cluster_sentences[i] for i in outlier_indices]
-        
-        cluster_summaries[cluster_id] = get_cluster_summary(cluster_sentences, cluster_embeddings)
+
+    # Sort clusters by size (descending order)
+    sorted_clusters = sorted(clusters.items(), key=lambda x: len(x[1]), reverse=True)
 
     template = Template('''
     <!DOCTYPE html>
@@ -64,6 +64,17 @@ def generate_report(sentences, labels, embeddings, fig, clusters, evaluation_met
     <body>
         <h1>Semantic Clustering Report</h1>
         
+        {% if algorithm_info %}
+        <h2>Clustering Algorithm</h2>
+        <p><strong>Algorithm:</strong> {{ algorithm_info.algorithm }}</p>
+        {% if algorithm_info.algorithm == 'kmeans' %}
+        <p><strong>Number of clusters:</strong> {{ algorithm_info.n_clusters }}</p>
+        {% elif algorithm_info.algorithm == 'dbscan' %}
+        <p><strong>Epsilon:</strong> {{ algorithm_info.eps }}</p>
+        <p><strong>Minimum samples:</strong> {{ algorithm_info.min_samples }}</p>
+        {% endif %}
+        {% endif %}
+        
         <h2>Clustering Plot</h2>
         {{ plot_html|safe }}
         
@@ -72,6 +83,11 @@ def generate_report(sentences, labels, embeddings, fig, clusters, evaluation_met
         <div class="metric"><strong>{{ metric|replace('_', ' ')|title }}:</strong> {{ "%.4f"|format(value) }}</div>
         {% endfor %}
         
+        {% if sweep_fig %}
+            <h2>Hyperparameter Sweep Results</h2>
+            {{ sweep_fig.to_html(full_html=False, include_plotlyjs="cdn")|safe }}
+        {% endif %}
+
         <h2>Clusters and Outliers</h2>
         <table class="cluster-table">
             <tr>
@@ -81,7 +97,7 @@ def generate_report(sentences, labels, embeddings, fig, clusters, evaluation_met
                 <th>Outliers</th>
                 <th>Summary</th>
             </tr>
-            {% for cluster_id, sentences in clusters.items() %}
+            {% for cluster_id, sentences in sorted_clusters %}
             <tr>
                 <td>{{ cluster_id }}</td>
                 <td>{{ sentences|length }}</td>
@@ -102,7 +118,7 @@ def generate_report(sentences, labels, embeddings, fig, clusters, evaluation_met
                     {% endfor %}
                     </ul>
                 </td>
-                <td>{{ cluster_summaries[cluster_id] }}</td>
+                <td>{{ cluster_summaries.get(cluster_id, "") }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -113,9 +129,11 @@ def generate_report(sentences, labels, embeddings, fig, clusters, evaluation_met
     html_content = template.render(
         plot_html=plot_html,
         evaluation_metrics=evaluation_metrics,
-        clusters=clusters,
+        sorted_clusters=sorted_clusters,
         outliers=outliers,
-        cluster_summaries=cluster_summaries  # Add this line
+        cluster_summaries=cluster_summaries,
+        sweep_fig=sweep_fig,
+        algorithm_info=algorithm_info
     )
 
     output_file = Path(output_file)
